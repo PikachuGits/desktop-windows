@@ -190,6 +190,13 @@
     });
   }
 
+  /** 源站用 0.0.0.0 表示「未探测到」——界面上显示为 —，避免看起来像解析错 */
+  function 显示IP(v) {
+    const s = (v || "").trim();
+    if (!s || s === "0.0.0.0") return "—";
+    return s;
+  }
+
   function 建行(项) {
     const tr = document.createElement("tr");
     tr.className = "row";
@@ -233,8 +240,10 @@
         有变化.push(tr);
       }
       mac.textContent = 项.lan_mac || "—";
-      lan.textContent = 项.lan_ip || "—";
-      wan.textContent = 项.route_ip || "—";
+      lan.textContent = 显示IP(项.lan_ip);
+      lan.title = 项.lan_ip === "0.0.0.0" || !项.lan_ip ? "源站未探测到内网 IP（多为离线）" : 项.lan_ip;
+      wan.textContent = 显示IP(项.route_ip);
+      wan.title = 项.route_ip === "0.0.0.0" || !项.route_ip ? "源站未探测到路由 IP（多为离线）" : 项.route_ip;
       const 态 = 项.status_text || (项.status_online ? "在线" : "离线");
       badge.textContent = 态;
       badge.classList.toggle("on", !!项.status_online);
