@@ -101,41 +101,51 @@ fn write_utf16_le_bom(path: &PathBuf, text: &str) -> std::io::Result<()> {
 }
 
 /// 对齐 Form1.openrdp
-/// Windows: mstsc.exe /f file
-/// macOS: 用「Windows App」(com.microsoft.rdc.macos) 打开 .rdp，可远程连 Windows
+/// 系统隔离：
+/// - Windows：只走 mstsc.exe（禁止混入 macOS 的 open / Windows App）
+/// - macOS/Linux：只走 open -a Windows App（禁止调用 mstsc）
 #[cfg(windows)]
 pub fn open_rdp(file_name: &str) -> Result<(), String> {
-    if !std::path::Path::new(file_name).exists() {
+    let path = std::fs::canonicalize(file_name).unwrap_or_else(|_| PathBuf::from(file_name));
+    if !path.exists() {
         return Err("远程桌面配置文件不存在！".into());
     }
+    // 注意：Command 参数不要再包引号，否则 mstsc 会把引号算进文件名
+    // 对应原 Process.Start("mstsc.exe", "/f \"xxx.rdp\"")
     Command::new("mstsc.exe")
-        .args(["/f", &format!("\"{file_name}\"")])
+        .arg("/f")
+        .arg(&path)
         .spawn()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("启动 mstsc 失败: {e}"))?;
+    crate::state::push_log(&format!(
+        "已启动 mstsc /f {}",
+        path.display()
+    ));
     Ok(())
 }
 
 #[cfg(not(windows))]
 pub fn open_rdp(file_name: &str) -> Result<(), String> {
-    if !std::path::Path::new(file_name).exists() {
+    let path = std::fs::canonicalize(file_name).unwrap_or_else(|_| PathBuf::from(file_name));
+    if !path.exists() {
         return Err("远程桌面配置文件不存在！".into());
     }
-    // 优先 Windows App，其次旧版 Microsoft Remote Desktop
+    // macOS：只用 Windows App / Microsoft Remote Desktop，不用 mstsc
     for app in ["Windows App", "Microsoft Remote Desktop"] {
-        let ok = Command::new("open")
-            .args(["-a", app, file_name])
-            .spawn()
-            .is_ok();
-        if ok {
-            crate::state::push_log(&format!("已调用 {app} 打开 {file_name}"));
-            return Ok(());
+        match Command::new("open").args(["-a", app]).arg(&path).spawn() {
+            Ok(_) => {
+                crate::state::push_log(&format!("已调用 {app} 打开 {}", path.display()));
+                return Ok(());
+            }
+            Err(e) => {
+                crate::state::push_log(&format!("调用 {app} 失败: {e}"));
+            }
         }
     }
-    // 兜底：交给系统按 .rdp 关联打开
     Command::new("open")
-        .arg(file_name)
+        .arg(&path)
         .spawn()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("打开 .rdp 失败: {e}"))?;
     Ok(())
 }
 
@@ -167,7 +177,7 @@ pub fn open_directory(path: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// 对齐 Form1.link_Click
+/// 对齐 Form1.link_Click：写 {ip}.rdp 后按当前系统启动远程桌面
 pub fn open_rdp_for_ip(raw_ip: &str, ping_status: &str) -> Result<(), String> {
     if ping_status == "0" {
         let msg = format!("{raw_ip}主机的IP不通，请先唤醒主机");
@@ -178,14 +188,18 @@ pub fn open_rdp_for_ip(raw_ip: &str, ping_status: &str) -> Result<(), String> {
         .chars()
         .filter(|c| *c != ' ' && *c != '\r' && *c != '\n')
         .collect();
+    if ip.is_empty() || ip == "0.0.0.0" {
+        let msg = format!("无效地址: {raw_ip}，无法远程");
+        crate::state::push_log(&msg);
+        return Err(msg);
+    }
     let cfg = crate::config::config();
     let username = cfg.rdp_username.clone();
+    // 仅 Windows 生成 DPAPI 密文；macOS 留空由客户端提示输入
     let password = get_rdp_password(&cfg.rdp_password);
-    crate::state::push_log(&format!(
-        "启动远程桌面:{ip}  {username}  {password}"
-    ));
+    crate::state::push_log(&format!("启动远程桌面:{ip}  {username}"));
     let file_name = format!("{ip}.rdp");
-    if std::path::Path::new(&file_name).exists() {
+    if PathBuf::from(&file_name).exists() {
         let _ = std::fs::remove_file(&file_name);
     }
     write_rdp_file(&file_name, &ip, &username, &password).map_err(|e| e.to_string())?;
