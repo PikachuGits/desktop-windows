@@ -79,13 +79,15 @@ button:disabled { opacity: 0.5; cursor: default; }
   height: 100%;
   min-height: 0;
   overflow: hidden;
+  /* 避免底部被裁切 */
+  padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
 #rail {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 12px;
+  padding: 12px 12px 8px;
   background: linear-gradient(180deg, #10141a 0%, var(--bg) 100%);
   border-right: 1px solid var(--line);
   overflow: auto;
@@ -263,7 +265,7 @@ button:disabled { opacity: 0.5; cursor: default; }
   min-height: 0;
   height: 100%;
   overflow: hidden;
-  padding: 12px 14px 10px;
+  padding: 12px 14px 12px;
   gap: 10px;
 }
 
@@ -349,7 +351,7 @@ button:disabled { opacity: 0.5; cursor: default; }
 
 #list-shell {
   flex: 1 1 0;
-  min-height: 0;
+  min-height: 140px;
   min-width: 0;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -358,6 +360,7 @@ button:disabled { opacity: 0.5; cursor: default; }
   box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;
+  margin-bottom: 0;
 }
 
 #list-scroll {
@@ -366,6 +369,7 @@ button:disabled { opacity: 0.5; cursor: default; }
   min-width: 0;
   overflow: auto;
   overscroll-behavior: contain;
+  padding-bottom: 4px;
 }
 
 #link-list {
@@ -486,6 +490,8 @@ button:disabled { opacity: 0.5; cursor: default; }
   font-size: 11px;
   flex: 0 0 auto;
   flex-wrap: wrap;
+  padding-bottom: 2px;
+  min-height: 20px;
 }
 
 tr.row.flash {
@@ -502,10 +508,11 @@ tr.row.flash {
   width: 100%;
   min-height: 36px;
   margin-top: auto;
+  flex: 0 0 auto;
   background: var(--panel-2);
   color: var(--ink);
   font-weight: 600;
-  flex: 0 0 auto;
+  z-index: 2;
 }
 .help-toggle:hover { border-color: var(--accent); }
 

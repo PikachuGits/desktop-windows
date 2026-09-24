@@ -29,7 +29,12 @@ pub fn register_key() -> Result<String, String> {
             Ok(name)
         }
         Err(e) => {
-            let first = e.split('\n').next().unwrap_or(&e).to_string();
+            let mut first = e.split('\n').next().unwrap_or(&e).to_string();
+            if first.contains("404") {
+                first = format!(
+                    "{first} —— 注册接口不存在/已下线，请改配置 register_url_template（当前指向的地址返回 404）"
+                );
+            }
             state::push_log(&format!("请求注册失败  {first}"));
             state::set_register_name(String::new());
             Err(first)

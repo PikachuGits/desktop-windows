@@ -41,13 +41,15 @@ pub fn copy_key(app: tauri::AppHandle) -> Result<UiState, String> {
     Ok(ui_state_with_info("已复制"))
 }
 
-/// 对齐 zhuchebutton_Click：先 zhuchebutton_Click_1（注册），再 socket_Tick
-/// 无论注册成败都继续 socket_Tick（注册失败时 namelabel 为空，socket_Tick 直接不连）
+/// 对齐 zhuchebutton_Click：先注册，再 socket_Tick
+/// 注册失败时 namelabel 为空，socket_Tick 原逻辑是直接不连（不额外报错）
 #[tauri::command]
 pub fn register_key(app: tauri::AppHandle) -> Result<UiState, String> {
     let _ = &app;
     let _ = tcp::register_key();
-    let _ = tcp::toggle_connection();
+    if !state::get_register_name().is_empty() {
+        let _ = tcp::toggle_connection();
+    }
     Ok(ui_state_with_info("单击密钥或按钮复制到粘贴板"))
 }
 
