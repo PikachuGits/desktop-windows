@@ -1,6 +1,6 @@
-# Windows + macOS 双端打包（Tauri 2）
-# 触发：tag v*、推 main、PR、手动
-# 产物不含 open-local-link.config.json（真实配置勿入库）
+# Windows + macOS 双端打包 + 更新签名（Tauri 2）
+# 打 tag v* 时产出安装包、.sig 签名、latest.json，供客户端自动更新
+# 真实配置与私钥均不入库；私钥放 Secret：TAURI_SIGNING_PRIVATE_KEY
 
 name: build
 
@@ -50,26 +50,18 @@ jobs:
       - name: 安装前端依赖
         run: npm ci
 
-      - name: 确认不会打入本地配置
+      - name: 确认不会打入本地配置/私钥
         shell: bash
         run: |
-          if [ -f open-local-link.config.json ]; then
-            echo "发现 open-local-link.config.json，已移除（真实配置不得打包）" >&2
-            rm -f open-local-link.config.json
-          fi
+          rm -f open-local-link.config.json
+          rm -f src-tauri/keys/updater.key
           test -f open-local-link.config.example.json
 
-      - name: 构建安装包
+      - name: 构建安装包（含更新签名）
         run: npm run tauri build
-
-      - name: 列出产物
-        shell: bash
-        run: |
-          find src-tauri/target/release/bundle -type f | tee bundle-list-${{ matrix.platform }}.txt
-          ls -la src-tauri/target/release/bundle/nsis 2>/dev/null || true
-          ls -la src-tauri/target/release/bundle/msi 2>/dev/null || true
-          ls -la src-tauri/target/release/bundle/dmg 2>/dev/null || true
-          ls -la src-tauri/target/release/bundle/macos 2>/dev/null || true
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
       - name: 上传 ${{ matrix.platform }} 安装包
         uses: actions/upload-artifact@v4
@@ -79,18 +71,19 @@ jobs:
             src-tauri/target/release/bundle/nsis/*
             src-tauri/target/release/bundle/msi/*
             src-tauri/target/release/bundle/dmg/*
-            src-tauri/target/release/bundle/macos/*
+            src-tauri/target/release/bundle/macos/**
           if-no-files-found: error
 
-      - name: 发布 Release（仅 tag，双端合并）
+      - name: 发布到 GitHub Release（含 latest.json，仅 tag）
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            src-tauri/target/release/bundle/nsis/*
-            src-tauri/target/release/bundle/msi/*
-            src-tauri/target/release/bundle/dmg/*
-            src-tauri/target/release/bundle/macos/**
-          generate_release_notes: true
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: ${{ github.ref_name }}
+          releaseBody: "Windows / macOS 安装包见附件；客户端「检查更新」将读取 latest.json。"
+          releaseDraft: false
+          includeUpdaterJson: true

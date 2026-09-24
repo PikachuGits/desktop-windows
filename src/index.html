@@ -67,6 +67,7 @@
         </div>
         <div class="main-tools">
           <span class="muted" id="refresh-meta">上次刷新 —</span>
+          <button type="button" class="ghost" id="btn-check-update">检查更新</button>
           <button type="button" class="ghost" id="btn-refresh-now">立即刷新</button>
           <label class="toggle">
             <input type="checkbox" id="toggle-auto" checked />
@@ -128,7 +129,9 @@
         </ol>
         <h4>三、远程桌面</h4>
         <p>Windows 用系统远程桌面；macOS 调用已安装的 <strong>Windows App</strong>（或 Microsoft Remote Desktop）打开 .rdp，即可连 Windows。首次可能需输入口令（配置里的 rdp 账号口令）。</p>
-        <h4>四、配置文件</h4>
+        <h4>四、自动更新</h4>
+        <p>点右上角<strong>检查更新</strong>，有新版会从 GitHub Releases 下载安装并重启。发版请打 <code>v*</code> 标签并附带 <code>latest.json</code> 与签名。</p>
+        <h4>五、配置文件</h4>
         <p>exe 同目录放 <code>open-local-link.config.json</code>（勿提交 git）。仓库内只有 example 模板。</p>
       </div>
     </section>

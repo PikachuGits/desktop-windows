@@ -143,6 +143,10 @@
           platform: "browser",
           welcome: "欢迎使用杰作科技网页弹出文件夹或文件的服务",
         });
+      case "check_update":
+        return Promise.resolve({ available: false, version: "本地预览", body: "浏览器演示不检查更新" });
+      case "install_update":
+        return Promise.resolve({ info: "浏览器演示不安装更新" });
       default:
         return Promise.resolve({ info: "单击密钥或按钮复制到粘贴板" });
     }
@@ -369,6 +373,33 @@
     }
   }
 
+  async function 检查更新() {
+    const 按钮 = $("btn-check-update");
+    按钮.disabled = true;
+    写日志("正在检查更新…");
+    try {
+      const info = await invoke("check_update");
+      if (info && info.available) {
+        写日志("发现新版本 " + info.version + "（当前 " + (info.current || "") + "）");
+        if (info.body) 写日志("更新说明: " + String(info.body).slice(0, 120));
+        状态.提示 = "发现新版本 " + info.version;
+        刷新界面();
+        if (confirm("发现新版本 " + info.version + "，是否下载并安装？")) {
+          写日志("开始下载安装更新…");
+          await invoke("install_update");
+        }
+      } else {
+        写日志("当前已是最新版本");
+        状态.提示 = "已是最新版本";
+        刷新界面();
+      }
+    } catch (e) {
+      写日志("检查更新失败  " + e);
+    } finally {
+      按钮.disabled = false;
+    }
+  }
+
   function 绑定() {
     $("keybutton").addEventListener("click", 复制密钥);
     $("keylabel").addEventListener("click", 复制密钥);
@@ -379,6 +410,7 @@
     });
     $("button2").addEventListener("click", () => invoke("quit_app"));
     $("btn-refresh-now").addEventListener("click", () => 刷新({ flash: true }));
+    $("btn-check-update") && $("btn-check-update").addEventListener("click", 检查更新);
     $("toggle-auto").addEventListener("change", (e) => {
       状态.自动刷新 = e.target.checked;
       写日志(状态.自动刷新 ? "已开启自动静默刷新（5 秒）" : "已暂停自动刷新");

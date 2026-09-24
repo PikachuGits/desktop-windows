@@ -54,6 +54,8 @@ fn main() {
     builder
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             commands::init_key,
             commands::copy_key,
@@ -70,6 +72,8 @@ fn main() {
             commands::wake_host,
             commands::get_public_config,
             commands::fetch_page_html,
+            commands::check_update,
+            commands::install_update,
         ])
         .setup(|app| {
             let handle = app.handle().clone();

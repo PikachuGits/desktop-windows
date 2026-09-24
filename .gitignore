@@ -1,3 +1,8 @@
+# 更新签名私钥 —— 只进 CI Secret，不进仓库
+src-tauri/keys/updater.key
+*.key
+!*.key.pub
+
 # 本地配置（真地址/口令）— 不要提交
 open-local-link.config.json
 config.json

@@ -173,6 +173,65 @@ pub fn fetch_page_html(_app: tauri::AppHandle) -> Result<String, String> {
     crate::pc_list::fetch_pc_list_html()
 }
 
+/// 检查 GitHub Releases 是否有新版本（tauri-plugin-updater）
+#[tauri::command]
+pub async fn check_update(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    use tauri_plugin_updater::UpdaterExt;
+    let current = app.package_info().version.to_string();
+    let updater = app.updater().map_err(|e| e.to_string())?;
+    match updater.check().await {
+        Ok(Some(update)) => Ok(serde_json::json!({
+            "available": true,
+            "current": current,
+            "version": update.version.clone().to_string(),
+            "body": update.body.clone().unwrap_or_default(),
+            "date": update.date.map(|d| d.to_string()).unwrap_or_default(),
+        })),
+        Ok(None) => Ok(serde_json::json!({
+            "available": false,
+            "current": current,
+            "version": current,
+            "body": "已是最新版本",
+        })),
+        Err(e) => Err(format!("检查更新失败: {e}")),
+    }
+}
+
+/// 下载并安装更新，完成后重启
+#[tauri::command]
+pub async fn install_update(app: tauri::AppHandle) -> Result<UiState, String> {
+    use tauri_plugin_updater::UpdaterExt;
+    state::push_log("开始下载并安装更新…");
+    let updater = app.updater().map_err(|e| e.to_string())?;
+    let update = updater
+        .check()
+        .await
+        .map_err(|e| format!("检查更新失败: {e}"))?
+        .ok_or("没有可用更新")?;
+
+    let mut downloaded: u64 = 0;
+    update
+        .download_and_install(
+            move |chunk_len: usize, content_len: Option<u64>| {
+                downloaded += chunk_len as u64;
+                if let Some(total) = content_len {
+                    if total > 0 && (downloaded % (512 * 1024)) < chunk_len as u64 {
+                        let pct = downloaded.saturating_mul(100) / total;
+                        state::push_log(&format!("下载更新… {pct}% ({downloaded}/{total})"));
+                    }
+                }
+            },
+            || {
+                state::push_log("正在安装更新…");
+            },
+        )
+        .await
+        .map_err(|e| format!("更新失败: {e}"))?;
+
+    state::push_log("更新完成，即将重启");
+    app.restart();
+}
+
 /// 对齐 button2 / 托盘「退出程序」
 #[tauri::command]
 pub fn quit_app(app: tauri::AppHandle) -> Result<(), String> {

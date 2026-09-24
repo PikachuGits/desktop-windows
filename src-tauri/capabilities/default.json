@@ -12,6 +12,9 @@
     "core:webview:allow-internal-toggle-devtools",
     "shell:allow-open",
     "clipboard-manager:allow-write-text",
-    "clipboard-manager:allow-read-text"
+    "clipboard-manager:allow-read-text",
+    "updater:default",
+    "process:allow-restart",
+    "process:allow-exit"
   ]
 }
