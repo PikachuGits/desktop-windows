@@ -46,7 +46,7 @@
       },
       "nsis": {
         "languages": ["SimpChinese", "English"],
-        "displayVersion": "1.0.0"
+        "displayLanguageSelector": true
       }
     }
   },
