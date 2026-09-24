@@ -41,25 +41,21 @@ pub fn copy_key(app: tauri::AppHandle) -> Result<UiState, String> {
     Ok(ui_state_with_info("已复制"))
 }
 
-/// 对齐 zhuchebutton_Click：注册 + 随后 socket_Tick
+/// 对齐 zhuchebutton_Click：先 zhuchebutton_Click_1（注册），再 socket_Tick
+/// 无论注册成败都继续 socket_Tick（注册失败时 namelabel 为空，socket_Tick 直接不连）
 #[tauri::command]
 pub fn register_key(app: tauri::AppHandle) -> Result<UiState, String> {
     let _ = &app;
-    tcp::register_key()?;
-    // 原逻辑：注册后立刻触发连接
+    let _ = tcp::register_key();
     let _ = tcp::toggle_connection();
     Ok(ui_state_with_info("单击密钥或按钮复制到粘贴板"))
 }
 
-/// 对齐 socket_Tick / 托盘「点击注册」
+/// 对齐 socket_Tick（仅切换连接，不重复注册）
 #[tauri::command]
 pub fn toggle_connection(app: tauri::AppHandle) -> Result<UiState, String> {
     let _ = &app;
-    // 托盘与按钮共用：若未注册则先走注册
-    if state::get_register_name().is_empty() && !state::get_connected() {
-        let _ = tcp::register_key();
-    }
-    tcp::toggle_connection()?;
+    let _ = tcp::toggle_connection();
     Ok(ui_state_with_info("单击密钥或按钮复制到粘贴板"))
 }
 
@@ -160,6 +156,12 @@ pub fn get_public_config(_app: tauri::AppHandle) -> PublicConfig {
     }
 }
 
+/// 右侧 webBrowser1 等价：由后端拉取列表页 HTML（避免前端跨域）
+#[tauri::command]
+pub fn fetch_page_html(_app: tauri::AppHandle) -> Result<String, String> {
+    crate::pc_list::fetch_pc_list_html()
+}
+
 /// 对齐 button2 / 托盘「退出程序」
 #[tauri::command]
 pub fn quit_app(app: tauri::AppHandle) -> Result<(), String> {
@@ -177,7 +179,7 @@ pub fn ui_state_with_info(info: &str) -> UiState {
         logs: state::get_logs(),
         platform: std::env::consts::OS.to_string(),
         browser_url: state::get_browser_url(),
-        welcome: crate::config::config().welcome_text.clone(),
+        welcome: "欢迎使用杰作科技网页弹出文件夹或文件的服务".to_string(),
     }
 }
 

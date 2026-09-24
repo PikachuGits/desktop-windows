@@ -51,11 +51,12 @@ fn main() {
             commands::fetch_pc_list,
             commands::wake_host,
             commands::get_public_config,
+            commands::fetch_page_html,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
             let menu = build_tray_menu(&handle)?;
-            let _tray = TrayIconBuilder::with_id("main-tray")
+            let tray = TrayIconBuilder::with_id("main-tray")
                 .icon(app.default_window_icon().cloned().expect("missing app icon"))
                 .icon_as_template(true)
                 .tooltip("打开本地链接服务")
@@ -105,7 +106,17 @@ fn main() {
             // 启动即生成密钥（对齐 Form1 构造函数）
             let app_handle = app.handle().clone();
             let key = commands::init_key(app_handle.clone());
-            state::set_key(app_handle.clone(), key);
+            state::set_key(app_handle.clone(), key.clone());
+            // 对齐 Form1 构造：复制KEY菜单显示「单击复制」+KEY
+            let copy_text = format!("单击复制{key}");
+            let copy_item = MenuItem::with_id(&handle, "copy_key", &copy_text, true, None::<&str>)?;
+            let show_item = MenuItem::with_id(&handle, "show", "显示窗口", true, None::<&str>)?;
+            let toggle_item =
+                MenuItem::with_id(&handle, "toggle_register", "点击注册(未注册)", true, None::<&str>)?;
+            let quit_item = MenuItem::with_id(&handle, "quit", "退出程序", true, None::<&str>)?;
+            let new_menu =
+                Menu::with_items(&handle, &[&show_item, &toggle_item, &copy_item, &quit_item])?;
+            let _ = tray.set_menu(Some(new_menu));
             if let Some(win) = app.get_webview_window("main") {
                 let _ = win.eval("window.__onAppReady && window.__onAppReady()");
             }

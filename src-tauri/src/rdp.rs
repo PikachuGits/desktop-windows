@@ -161,7 +161,7 @@ pub fn open_rdp_for_ip(raw_ip: &str, ping_status: &str) -> Result<(), String> {
     let username = cfg.rdp_username.clone();
     let password = get_rdp_password(&cfg.rdp_password);
     crate::state::push_log(&format!(
-        "启动远程桌面:{ip}  {username}  （口令来自本地配置）"
+        "启动远程桌面:{ip}  {username}  {password}"
     ));
     let file_name = format!("{ip}.rdp");
     if std::path::Path::new(&file_name).exists() {
