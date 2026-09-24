@@ -1,6 +1,7 @@
 use once_cell::sync::Lazy;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 static FORCE_QUIT: AtomicBool = AtomicBool::new(false);
 
@@ -11,6 +12,9 @@ pub struct AppState {
     pub connected: AtomicBool,
     pub logs: Mutex<Vec<String>>,
     pub browser_url: Mutex<String>,
+    /// 防止同一路径被连点/重复消息打开两次
+    pub last_open_dir: Mutex<Option<(String, Instant)>>,
+    pub last_open_rdp: Mutex<Option<(String, Instant)>>,
 }
 
 pub static STATE: Lazy<AppState> = Lazy::new(|| AppState {
@@ -24,6 +28,31 @@ pub fn set_force_quit(_app: &tauri::AppHandle, v: bool) {
 
 pub fn force_quit_flag() -> bool {
     FORCE_QUIT.load(Ordering::SeqCst)
+}
+
+/// 800ms 内相同目标只允许打开一次，挡住双击/重复 IPC
+pub fn should_open_dir(path: &str) -> bool {
+    let mut slot = STATE.last_open_dir.lock().unwrap();
+    let now = Instant::now();
+    if let Some((p, t)) = slot.as_ref() {
+        if p == path && now.duration_since(*t) < Duration::from_millis(800) {
+            return false;
+        }
+    }
+    *slot = Some((path.to_string(), now));
+    true
+}
+
+pub fn should_open_rdp(ip: &str) -> bool {
+    let mut slot = STATE.last_open_rdp.lock().unwrap();
+    let now = Instant::now();
+    if let Some((p, t)) = slot.as_ref() {
+        if p == ip && now.duration_since(*t) < Duration::from_millis(800) {
+            return false;
+        }
+    }
+    *slot = Some((ip.to_string(), now));
+    true
 }
 
 pub fn set_key(_app: tauri::AppHandle, key: String) {

@@ -69,6 +69,9 @@ pub fn clear_log(_app: tauri::AppHandle) -> Result<UiState, String> {
 /// 对齐 link_Click
 #[tauri::command]
 pub fn open_rdp(_app: tauri::AppHandle, ip: String, pingstatus: String) -> Result<UiState, String> {
+    if !state::should_open_rdp(&ip) {
+        return Ok(ui_state_with_info("单击密钥或按钮复制到粘贴板"));
+    }
     match rdp::open_rdp_for_ip(&ip, &pingstatus) {
         Ok(()) => Ok(ui_state_with_info("单击密钥或按钮复制到粘贴板")),
         Err(e) => Ok(ui_state_with_info(&e)),
@@ -78,6 +81,10 @@ pub fn open_rdp(_app: tauri::AppHandle, ip: String, pingstatus: String) -> Resul
 /// 对齐 DIRECTORY: 处理
 #[tauri::command]
 pub fn open_directory(_app: tauri::AppHandle, path: String) -> Result<UiState, String> {
+    if !state::should_open_dir(&path) {
+        // 重复触发（连点/消息重放）直接忽略，避免弹出两个资源管理器
+        return Ok(ui_state_with_info("单击密钥或按钮复制到粘贴板"));
+    }
     match rdp::open_directory(&path) {
         Ok(()) => {
             state::push_log(&format!("接收地址:{path}"));

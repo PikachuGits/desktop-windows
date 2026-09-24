@@ -21,7 +21,25 @@ fn build_tray_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     Menu::with_items(app, &[&show, &toggle, &copy, &quit])
 }
 
+/// 进程互斥，防止出现两个主窗口（对齐 Program.cs 单实例）
+/// 用本机端口独占代替锁文件，进程退出自动释放，不会误挡下次启动。
+fn already_running() -> bool {
+    use std::net::TcpListener;
+    match TcpListener::bind("127.0.0.1:47211") {
+        Ok(listener) => {
+            // 泄漏监听器，占用端口直到进程退出
+            std::mem::forget(listener);
+            false
+        }
+        Err(_) => true,
+    }
+}
+
 fn main() {
+    // 对齐 Program.cs：先做单实例，避免第二次启动又开一个窗
+    if already_running() {
+        return;
+    }
     let mut builder = tauri::Builder::default();
 
     // Windows 单实例（对齐 Program.cs 的进程名互斥）

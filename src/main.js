@@ -18,6 +18,8 @@
   let platform = "browser";
   let listUrl = "";
   let refreshTimer = null;
+  let booted = false;
+  let msgSeq = 0;
 
   function nowLabel() {
     const d = new Date();
@@ -193,16 +195,18 @@
       });
       const hook =
         "<script>(function(){\n" +
-        "function post(msg){ try { window.parent.postMessage(msg,'*'); } catch(e){} }\n" +
+        "var __seq=0;\n" +
+        "function post(msg){ try { msg.__seq = Date.now(); window.parent.postMessage(msg,'*'); } catch(e){} }\n" +
         "document.addEventListener('click', function(e){\n" +
         "  var a = e.target && e.target.closest ? e.target.closest('a') : null;\n" +
         "  if(!a) return;\n" +
         "  var id = a.id || a.getAttribute('id') || '';\n" +
+        "  if(id === 'iprdp' || id === 'opendir') e.preventDefault();\n" +
         "  if(id === 'iprdp'){\n" +
-        "    e.preventDefault();\n" +
+        "    e.stopPropagation();\n" +
         "    post({type:'iprdp', ip:a.getAttribute('data-ip')||'', pingstatus:a.getAttribute('data-pingstatus')||''});\n" +
         "  } else if(id === 'opendir'){\n" +
-        "    e.preventDefault();\n" +
+        "    e.stopPropagation();\n" +
         "    post({type:'opendir', dir:a.getAttribute('data-dir')||''});\n" +
         "  }\n" +
         "}, true);\n" +
@@ -264,8 +268,10 @@
   function onWindowMessage(ev) {
     const d = ev.data;
     if (!d || typeof d !== "object") return;
+    // 同一点击只处理一次，防止 message 重复导致开两个资源管理器
+    if (d.__seq && d.__seq <= msgSeq) return;
+    if (d.__seq) msgSeq = d.__seq;
     if (d.type === "iprdp") {
-      // 对齐 Form1.link_Click
       invoke("open_rdp", { ip: d.ip, pingstatus: String(d.pingstatus) })
         .then(apply)
         .catch((e) => log(String(e)));
@@ -286,6 +292,8 @@
   }
 
   async function boot() {
+    if (booted) return;
+    booted = true;
     bind();
     $("infotextBox").value = "欢迎使用杰作科技网页弹出文件夹或文件的服务";
     setInfo("单击密钥或按钮复制到粘贴板");

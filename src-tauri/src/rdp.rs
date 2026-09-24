@@ -120,11 +120,13 @@ pub fn open_rdp(file_name: &str) -> Result<(), String> {
     ))
 }
 
-/// 对齐 Process.Start("explorer.exe", path)
+/// 对齐 Process.Start("explorer.exe", path)，
+/// 但 Windows 上 `explorer.exe <UNC/路径>` 常会再弹一个默认窗，
+/// 故用 `/root,` 只开目标目录，避免双窗。
 #[cfg(windows)]
 pub fn open_directory(path: &str) -> Result<(), String> {
     Command::new("explorer.exe")
-        .arg(path)
+        .arg(format!("/root,{path}"))
         .spawn()
         .map_err(|e| e.to_string())?;
     Ok(())
