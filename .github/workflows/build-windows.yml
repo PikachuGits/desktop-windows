@@ -68,30 +68,6 @@ jobs:
           echo "---- light/wix 日志（如有） ----"
           find src-tauri/target/release -name "*.wixpdb" -o -name "*light*" 2>/dev/null | head
 
-      - name: 准备配置说明与示例（安装包内不含真实配置）
-        shell: bash
-        run: |
-          mkdir -p dist-config
-          cp open-local-link.config.example.json dist-config/
-          cat > dist-config/配置说明.txt <<'EOF'
-          真实配置文件名必须是：open-local-link.config.json
-          （不要提交到 git，安装包内也不会自带口令）
-
-          请把填好的配置放到下面任一位置（按优先级）：
-          1) 环境变量 OPEN_LOCAL_LINK_CONFIG 指向的完整路径
-          2) 程序当前工作目录
-          3) 安装后的 exe 同目录（推荐）
-             例如：C:\Users\<你>\AppData\Local\open-local-link-service\
-
-          步骤：
-          1. 复制 open-local-link.config.example.json
-          2. 改名为 open-local-link.config.json
-          3. 填入内网地址与远程桌面账号口令
-          4. 放到 exe 旁，重启本程序
-
-          仓库与安装包只含示例（example），不含真实口令。
-          EOF
-
       - name: 上传安装包
         uses: actions/upload-artifact@v4
         with:
@@ -99,7 +75,6 @@ jobs:
           path: |
             src-tauri/target/release/bundle/nsis/*
             src-tauri/target/release/bundle/msi/*
-            dist-config/*
           if-no-files-found: error
 
       - name: 发布 Release（仅 tag）
@@ -109,7 +84,6 @@ jobs:
           files: |
             src-tauri/target/release/bundle/nsis/*
             src-tauri/target/release/bundle/msi/*
-            dist-config/*
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
