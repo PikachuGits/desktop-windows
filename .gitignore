@@ -1,0 +1,18 @@
+# 本地配置（真地址/口令）— 不要提交
+open-local-link.config.json
+config.json
+.env
+.env.*
+
+# 依赖与构建产物
+node_modules/
+src-tauri/target/
+src-tauri/gen/
+dist/
+
+# 运行时生成的远程桌面文件（含口令密文）
+*.rdp
+
+.DS_Store
+*.log
+icon.icns.png

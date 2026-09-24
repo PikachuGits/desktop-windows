@@ -1,0 +1,181 @@
+<!-- AI生成 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>打开本地链接服务</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<p data-aigc-mark="1" style="margin:0 0 8px;font-size:10px;line-height:1.3;color:#6b6560;font-weight:400;">AI生成</p>
+
+  <div id="app">
+    <aside id="rail">
+      <header class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <h1>打开本地链接服务</h1>
+          <p class="sub">本机配对网关</p>
+        </div>
+      </header>
+
+      <section class="card key-card">
+        <div class="card-head">
+          <span class="eyebrow">本机密钥</span>
+          <button type="button" class="ghost" id="btn-copy-hint" title="复制密钥">复制</button>
+        </div>
+        <div class="key-row">
+          <code id="keylabel" class="key" title="点击复制">············</code>
+          <button type="button" class="primary" id="keybutton">点击复制</button>
+        </div>
+        <p class="hint" id="infolabel">单击密钥或按钮复制到粘贴板</p>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <span class="eyebrow">连接状态</span>
+          <span class="pill" id="conn-pill">未注册</span>
+        </div>
+        <button type="button" class="primary block" id="zhuchebutton">点击注册（未注册）</button>
+        <div class="meta-row">
+          <span class="label">注册人</span>
+          <span class="value boxed" id="namelabel">—</span>
+        </div>
+        <div class="meta-row">
+          <span class="label">运行平台</span>
+          <span class="value" id="platform-badge">浏览器预览</span>
+        </div>
+      </section>
+
+      <section class="card log-card">
+        <div class="card-head">
+          <span class="eyebrow">运行日志</span>
+          <div class="log-actions">
+            <button type="button" class="ghost" id="button1">清空日志</button>
+            <button type="button" class="danger" id="button2">退出程序</button>
+          </div>
+        </div>
+        <pre id="infotextBox" readonly>欢迎使用网页弹出文件夹或文件的服务</pre>
+      </section>
+
+      <button type="button" class="help-toggle" id="btn-help" aria-expanded="false">使用帮助</button>
+    </aside>
+
+    <main id="main">
+      <header class="main-head">
+        <div>
+          <h2>主机列表</h2>
+          <p class="sub">主机列表 · 5 秒静默刷新 · 滚动位置保持（地址见本地配置）</p>
+        </div>
+        <div class="main-tools">
+          <span class="muted" id="refresh-meta">上次刷新 —</span>
+          <button type="button" class="ghost" id="btn-refresh-now">立即刷新</button>
+          <label class="toggle">
+            <input type="checkbox" id="toggle-auto" checked />
+            <span>自动刷新</span>
+          </label>
+        </div>
+      </header>
+
+      <div class="toolbar">
+        <input id="filter" type="search" placeholder="筛选主机名 / MAC / IP / 路径…" autocomplete="off" />
+        <div class="seg" role="tablist">
+          <button type="button" class="seg-btn active" data-filter="all">全部</button>
+          <button type="button" class="seg-btn" data-filter="online">在线</button>
+          <button type="button" class="seg-btn" data-filter="offline">离线</button>
+        </div>
+      </div>
+
+      <div id="list-shell">
+        <div id="list-scroll">
+          <table id="pc-table">
+            <thead>
+              <tr>
+                <th>状态</th>
+                <th>主机名</th>
+                <th>内网MAC</th>
+                <th>内网IP</th>
+                <th>路由IP</th>
+                <th class="col-act">唤醒</th>
+                <th class="col-act">本地连接</th>
+                <th class="col-act">远程连接</th>
+                <th class="col-act">网盘目录</th>
+              </tr>
+            </thead>
+            <tbody id="link-list" aria-live="polite"></tbody>
+          </table>
+          <div id="list-empty" class="empty hidden">没有匹配的主机</div>
+        </div>
+      </div>
+
+      <footer class="main-foot">
+        <span id="list-stats">—</span>
+        <span class="muted">唤醒=wol.php · 连接=远程桌面 · 网盘=弹出资源管理器</span>
+      </footer>
+    </main>
+
+    <section id="help-panel" class="hidden" aria-label="使用帮助">
+      <header class="help-head">
+        <h3>使用帮助</h3>
+        <button type="button" class="ghost" id="btn-help-close">关闭</button>
+      </header>
+      <div class="help-body">
+        <h4>一、这是干什么的</h4>
+        <p>本机常驻后，把 12 位<strong>本机密钥</strong>填到配对网页。之后在本程序或网页上对某台电脑点按钮，可<strong>唤醒</strong>、打开<strong>远程桌面</strong>、弹出<strong>网盘目录</strong>。</p>
+
+        <h4>二、日常怎么用</h4>
+        <ol>
+          <li>启动程序，复制左上角<strong>本机密钥</strong>。</li>
+          <li>把密钥填到配对页，在本程序点<strong>点击注册（未注册）</strong>。</li>
+          <li>「注册人」出现名字后即可；可关窗口，程序留在<strong>托盘</strong>。</li>
+          <li>需要彻底退出时用<strong>退出程序</strong>或托盘菜单。</li>
+        </ol>
+
+        <h4>三、主机列表按钮（与原内嵌网页一致）</h4>
+        <ul>
+          <li><strong>唤醒</strong>：请求 <code>wol.php?pcname=&amp;lanmac=</code>，把离线电脑叫醒。</li>
+          <li><strong>本地连接</strong>：用内网 IP 开远程桌面（原 <code>id=iprdp</code> 内网列）。</li>
+          <li><strong>远程连接</strong>：用路由/外网 IP 开远程桌面（原 <code>id=iprdp</code> 外网列）。</li>
+          <li><strong>网盘目录</strong>：按 <code>data-dir</code> 弹出资源管理器（原 <code>id=opendir</code>）。</li>
+          <li>状态<strong>离线</strong>时点连接会提示「请先唤醒主机」，先点<strong>唤醒</strong>再连。</li>
+          <li>列表 5 秒<strong>静默刷新</strong>，只改变化的格子，不会把页面卷回顶部。</li>
+        </ul>
+
+        <h4>四、托盘菜单</h4>
+        <ul>
+          <li><strong>显示窗口</strong> / <strong>点击注册</strong> / <strong>复制密钥</strong> / <strong>退出程序</strong>。</li>
+        </ul>
+
+        <h4>五、Mac 上能验证什么</h4>
+        <table class="help-table">
+          <thead>
+            <tr><th>功能</th><th>Mac</th><th>说明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>界面、密钥、列表、静默刷新</td><td>能</td><td>浏览器或桌面壳都可</td></tr>
+            <tr><td>唤醒</td><td>能发请求</td><td>需能访问配置中的唤醒服务</td></tr>
+            <tr><td>远程桌面免密</td><td>不能</td><td>依赖 Windows 的 mstsc</td></tr>
+            <tr><td>网盘 UNC 弹资源管理器</td><td>不能对等</td><td>Mac 只能转访达 smb://</td></tr>
+          </tbody>
+        </table>
+
+        <h4>六、与旧版对照（含唤醒）</h4>
+        <table class="help-table">
+          <thead>
+            <tr><th>旧网页/程序</th><th>新版</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>唤醒 → wol.php</td><td>每行「唤醒」按钮，请求相同</td></tr>
+            <tr><td>本地/远程连接 id=iprdp</td><td>两列按钮，逻辑同 link_Click</td></tr>
+            <tr><td>网盘目录 id=opendir</td><td>每行「网盘目录」，打开 data-dir</td></tr>
+            <tr><td>注册 / TCP 收目录指令</td><td>一致</td></tr>
+            <tr><td>注册时误开测试文件</td><td>已去掉</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

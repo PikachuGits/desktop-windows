@@ -1,0 +1,12 @@
+{
+  "pc_list_url": "http://pc-list.example.local/index.php",
+  "wake_url_template": "http://wake.example.local/wake.php?pcname={pcname}&lanmac={lanmac}",
+  "register_url_template": "http://register.example.local/register?key={key}",
+  "relay_host": "relay.example.local",
+  "relay_port": 211,
+  "rdp_username": "your-rdp-username",
+  "rdp_password": "CHANGE_ME",
+  "welcome_text": "欢迎使用网页弹出文件夹或文件的服务",
+  "brand_title": "打开本地链接服务",
+  "brand_subtitle": "本机配对网关"
+}

@@ -1,0 +1,84 @@
+# Windows 桌面打包（Tauri 2）
+# 触发：打 tag（v*）、推 main、或手动 workflow_dispatch
+# 产物：nsis / msi 安装包（tauri bundle），不包含本地 open-local-link.config.json
+
+name: build-windows
+
+on:
+  push:
+    branches: [main, master]
+    tags: ["v*"]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: 安装 Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: 缓存 Cargo
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: 安装前端依赖
+        run: npm ci
+
+      - name: 确认不会打入本地配置
+        shell: bash
+        run: |
+          if [ -f open-local-link.config.json ]; then
+            echo "发现 open-local-link.config.json，CI 不应打包真实配置" >&2
+            rm -f open-local-link.config.json
+          fi
+          test -f open-local-link.config.example.json
+
+      - name: 构建 Windows 安装包
+        run: npm run tauri build
+
+      - name: 列出产物
+        shell: bash
+        run: |
+          mkdir -p release-notes
+          find src-tauri/target/release/bundle -type f | tee release-notes/bundle-list.txt
+          ls -la src-tauri/target/release/bundle/nsis \
+                 src-tauri/target/release/bundle/msi \
+            2>/dev/null || true
+
+      - name: 上传安装包
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-bundles
+          path: |
+            src-tauri/target/release/bundle/nsis/*
+            src-tauri/target/release/bundle/msi/*
+          if-no-files-found: error
+
+      - name: 发布 Release（仅 tag）
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            src-tauri/target/release/bundle/nsis/*
+            src-tauri/target/release/bundle/msi/*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
