@@ -395,13 +395,26 @@ button:disabled { opacity: 0.5; cursor: default; }
   vertical-align: middle;
 }
 #pc-table tbody tr:hover { background: rgba(255, 255, 255, 0.02); }
-#pc-table .col-act { width: 78px; }
+#pc-table .col-act {
+  width: 96px;
+  min-width: 96px;
+}
+#pc-table .col-act th,
+#pc-table thead th.col-act {
+  white-space: nowrap;
+}
 #pc-table .col-act button {
   position: static;
+  display: block;
   width: 100%;
+  min-width: 84px;
   min-height: 28px;
-  padding: 4px 4px;
+  padding: 4px 6px;
   font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
 }
 #pc-table .mono {
   font-family: var(--mono);

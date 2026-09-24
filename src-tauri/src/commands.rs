@@ -123,16 +123,18 @@ pub fn fetch_pc_list(_app: tauri::AppHandle) -> Result<Vec<crate::pc_list::PcRow
 }
 
 /// 页面「唤醒」按钮：wol.php?pcname=&lanmac=
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn wake_host(_app: tauri::AppHandle, pcname: String, lanmac: String) -> Result<UiState, String> {
-    state::push_log(&format!("请求唤醒: {pcname} ({lanmac})"));
-    match crate::pc_list::wake_host(&pcname, &lanmac) {
+    let mac = lanmac.trim().to_string();
+    if mac.is_empty() || mac.replace(':', "").chars().all(|c| c == '0') {
+        state::push_log(&format!("无法唤醒「{pcname}」：MAC 无效"));
+        return Ok(ui_state_with_info("缺少 MAC，无法唤醒"));
+    }
+    state::push_log(&format!("请求唤醒: {pcname} ({mac})"));
+    match crate::pc_list::wake_host(&pcname, &mac) {
         Ok(body) => {
-            // wol.php 成功时返回「魔法包发送成功！…已尝试唤醒…」
-            let 摘要 = body
-                .replace('\n', " ")
-                .replace("<br>", " · ");
-            let 摘要: String = 摘要.chars().take(120).collect();
+            let 摘要 = body.replace('\n', " ").replace("<br>", " · ");
+            let 摘要: String = 摘要.chars().take(160).collect();
             state::push_log(&format!("唤醒服务应答: {摘要}"));
             Ok(ui_state_with_info("唤醒指令已提交，请约 1 分钟后刷新在线状态"))
         }

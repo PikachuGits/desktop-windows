@@ -277,9 +277,29 @@
   }
 
   function 唤醒(项) {
-    invoke("wake_host", { pcname: 项.hostname, lanmac: 项.lan_mac })
-      .then(应用状态)
-      .then(() => { if (项.hostname) 写日志("请求唤醒: " + 项.hostname); });
+    const pcname = 项.hostname || "";
+    const lanmac = 项.lan_mac || "";
+    if (!lanmac || /^00:00:00:00:00:00$/i.test(lanmac)) {
+      写日志("无法唤醒「" + pcname + "」：MAC 为空或全 0，源站未登记网卡地址");
+      状态.提示 = "缺少 MAC，无法唤醒";
+      刷新界面();
+      return;
+    }
+    写日志("请求唤醒: " + pcname + " (" + lanmac + ")");
+    invoke("wake_host", { pcname, lanmac })
+      .then((s) => {
+        应用状态(s);
+        if (s && s.info) {
+          写日志(s.info);
+          状态.提示 = s.info;
+          刷新界面();
+        }
+      })
+      .catch((e) => {
+        写日志("唤醒失败  " + e);
+        状态.提示 = "唤醒失败";
+        刷新界面();
+      });
   }
 
   function 远程(ip, ping) {
