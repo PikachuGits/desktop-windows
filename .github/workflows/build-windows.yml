@@ -53,15 +53,20 @@ jobs:
 
       - name: 构建 Windows 安装包
         run: npm run tauri build
+        env:
+          # WiX light 对非 ASCII 产物路径敏感；productName 已改为 ASCII
+          TAURI_BUNDLE_ARGS: ""
 
       - name: 列出产物
         shell: bash
         run: |
-          mkdir -p release-notes
-          find src-tauri/target/release/bundle -type f | tee release-notes/bundle-list.txt
-          ls -la src-tauri/target/release/bundle/nsis \
-                 src-tauri/target/release/bundle/msi \
-            2>/dev/null || true
+          find src-tauri/target/release/bundle -type f | tee bundle-list.txt
+          echo "---- nsis ----"
+          ls -la src-tauri/target/release/bundle/nsis || true
+          echo "---- msi ----"
+          ls -la src-tauri/target/release/bundle/msi || true
+          echo "---- light/wix 日志（如有） ----"
+          find src-tauri/target/release -name "*.wixpdb" -o -name "*light*" 2>/dev/null | head
 
       - name: 上传安装包
         uses: actions/upload-artifact@v4
