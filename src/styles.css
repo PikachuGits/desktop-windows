@@ -237,7 +237,9 @@ button:disabled { opacity: 0.5; cursor: default; }
 #infotextBox {
   flex: 1 1 auto;
   margin: 0;
+  width: 100%;
   min-height: 72px;
+  max-height: none;
   overflow: auto;
   padding: 10px;
   border-radius: 8px;
@@ -251,6 +253,7 @@ button:disabled { opacity: 0.5; cursor: default; }
   word-break: break-all;
   user-select: text;
   resize: none;
+  display: block;
 }
 
 #main {

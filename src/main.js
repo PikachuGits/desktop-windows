@@ -36,11 +36,19 @@
     );
   }
 
-  /** 对齐 Form1：新日志插到最上方 */
+  /** 对齐 Form1：新日志插到最上方。必须用 textarea 的 value（pre 写 value 不会上屏） */
   function 写日志(文) {
     const 框 = $("infotextBox");
     const 行 = 时间戳() + "   " + 文;
-    框.value = 行 + "\n" + (框.value || "");
+    const 原 = 框.value != null && 框.value !== "" ? 框.value : (框.textContent || "");
+    框.value = 行 + "\n" + 原;
+  }
+
+  /** 后端 push_log 的日志直接刷进日志区 */
+  function 应用日志(s) {
+    if (s && Array.isArray(s.logs) && s.logs.length) {
+      $("infotextBox").value = s.logs.join("\n");
+    }
   }
 
   function 按钮文案() {
@@ -59,9 +67,7 @@
           : s.platform === "darwin" ? "macOS · Windows App 远程 / 访达网盘"
             : s.platform === "browser" ? "浏览器预览" : s.platform;
     }
-    if (s.logs && s.logs.length && $("infotextBox").dataset.fromRust === "1") {
-      $("infotextBox").value = s.logs.join("\n");
-    }
+    应用日志(s);
     刷新界面();
   }
 
@@ -341,13 +347,22 @@
 
   async function 启动注册() {
     $("zhuchebutton").disabled = true;
+    写日志("点击注册：正在请求注册…");
+    状态.提示 = "正在请求注册…";
+    刷新界面();
     try {
-      // 对齐 zhuchebutton_Click：注册后必进 socket_Tick（后端 register_key 已串联）
-      写日志("正在请求注册");
+      // 对齐 zhuchebutton_Click：注册 + socket_Tick
       const s = await invoke("register_key");
       应用状态(s);
+      写日志(
+        状态.注册人
+          ? "注册完成，注册人=" + 状态.注册人 + "，" + 按钮文案()
+          : "注册未取得注册人（请检查配置中的注册地址）"
+      );
     } catch (e) {
-      写日志("请求注册失败  " + e);
+      写日志("点击注册失败  " + e);
+      状态.提示 = "注册失败";
+      刷新界面();
     } finally {
       $("zhuchebutton").disabled = false;
       setTimeout(() => 刷新({ flash: true }), 300);
