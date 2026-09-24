@@ -2,32 +2,136 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>打开本地链接服务</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!-- 对齐 Form1.Designer：ClientSize 1276×661，左控件 + 右 webBrowser1 -->
-  <div id="form">
-    <span class="lbl" id="label1">本机密钥：</span>
-    <span class="boxed" id="keylabel">这里显示KEY</span>
-    <span class="muted" id="infolabel">单击复制到粘贴板</span>
-    <button id="keybutton" type="button">点击复制</button>
+  <div id="app">
+    <aside id="rail">
+      <header class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <h1>打开本地链接服务</h1>
+          <p class="sub">本机配对网关</p>
+        </div>
+      </header>
 
-    <span class="lbl" id="label4">连接状态：</span>
-    <button id="zhuchebutton" type="button">点击注册(未注册)</button>
+      <section class="card key-card">
+        <div class="card-head">
+          <span class="eyebrow">本机密钥</span>
+          <button type="button" class="ghost" id="btn-copy-hint" title="复制密钥">复制</button>
+        </div>
+        <div class="key-row">
+          <code id="keylabel" class="key" title="点击复制">············</code>
+          <button type="button" class="primary" id="keybutton">点击复制</button>
+        </div>
+        <p class="hint" id="infolabel">单击密钥或按钮复制到粘贴板</p>
+      </section>
 
-    <span class="lbl" id="label2">注册人：</span>
-    <span class="boxed" id="namelabel"></span>
+      <section class="card">
+        <div class="card-head">
+          <span class="eyebrow">连接状态</span>
+          <span class="pill" id="conn-pill">未注册</span>
+        </div>
+        <button type="button" class="primary block" id="zhuchebutton">点击注册（未注册）</button>
+        <div class="meta-row">
+          <span class="label">注册人</span>
+          <span class="value boxed" id="namelabel">—</span>
+        </div>
+        <div class="meta-row">
+          <span class="label">运行平台</span>
+          <span class="value" id="platform-badge">浏览器预览</span>
+        </div>
+      </section>
 
-    <button id="button1" type="button">清空日志</button>
-    <button id="button2" type="button">退出程序</button>
-    <span class="muted small" id="label3">右侧5秒自动刷新&gt;&gt;</span>
+      <section class="card log-card">
+        <div class="card-head">
+          <span class="eyebrow">运行日志</span>
+          <div class="log-actions">
+            <button type="button" class="ghost" id="button1">清空日志</button>
+            <button type="button" class="danger" id="button2">退出程序</button>
+          </div>
+        </div>
+        <pre id="infotextBox" readonly>欢迎使用杰作科技网页弹出文件夹或文件的服务</pre>
+      </section>
 
-    <textarea id="infotextBox" readonly spellcheck="false"></textarea>
+      <button type="button" class="help-toggle" id="btn-help" aria-expanded="false">使用帮助</button>
+    </aside>
 
-    <!-- webBrowser1：内嵌 PC 列表真实页（由 app.js 拉取后注入，并挂钩 #iprdp） -->
-    <iframe id="webBrowser1" title="内嵌网页" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
-    <div id="web-fallback" class="hidden">无法加载主机列表页面，请检查配置中的地址是否可达。</div>
+    <main id="main">
+      <header class="main-head">
+        <div>
+          <h2>主机列表</h2>
+          <p class="sub">5 秒静默刷新 · 滚动位置保持</p>
+        </div>
+        <div class="main-tools">
+          <span class="muted" id="refresh-meta">上次刷新 —</span>
+          <button type="button" class="ghost" id="btn-refresh-now">立即刷新</button>
+          <label class="toggle">
+            <input type="checkbox" id="toggle-auto" checked />
+            <span>自动刷新</span>
+          </label>
+        </div>
+      </header>
+
+      <div class="toolbar">
+        <input id="filter" type="search" placeholder="筛选主机 / MAC / IP…" autocomplete="off" />
+        <div class="seg" role="tablist">
+          <button type="button" class="seg-btn active" data-filter="all">全部</button>
+          <button type="button" class="seg-btn" data-filter="online">在线</button>
+          <button type="button" class="seg-btn" data-filter="offline">离线</button>
+        </div>
+      </div>
+
+      <div id="list-shell">
+        <div id="list-scroll">
+          <table id="pc-table">
+            <thead>
+              <tr>
+                <th>状态</th>
+                <th>主机名</th>
+                <th>内网MAC</th>
+                <th>内网IP</th>
+                <th>路由IP</th>
+                <th class="col-act">唤醒</th>
+                <th class="col-act">本地连接</th>
+                <th class="col-act">远程连接</th>
+                <th class="col-act">网盘目录</th>
+              </tr>
+            </thead>
+            <tbody id="link-list"></tbody>
+          </table>
+          <div id="list-empty" class="empty hidden">没有匹配的主机</div>
+        </div>
+      </div>
+
+      <footer class="main-foot">
+        <span id="list-stats">—</span>
+        <span class="muted">唤醒 / 远程桌面 / 网盘目录</span>
+      </footer>
+    </main>
+
+    <section id="help-panel" class="hidden" aria-label="使用帮助">
+      <header class="help-head">
+        <h3>使用帮助</h3>
+        <button type="button" class="ghost" id="btn-help-close">关闭</button>
+      </header>
+      <div class="help-body">
+        <h4>一、这是干什么的</h4>
+        <p>本机常驻后可：注册密钥、接收打开目录指令、唤醒离线电脑、一键远程桌面、弹出网盘目录。</p>
+        <h4>二、怎么用</h4>
+        <ol>
+          <li>复制<strong>本机密钥</strong>到配对页，点<strong>点击注册</strong>。</li>
+          <li>「注册人」有名字后可关窗，程序留在托盘。</li>
+          <li>列表里点<strong>唤醒</strong> / <strong>本地连接</strong> / <strong>远程连接</strong> / <strong>网盘目录</strong>。</li>
+        </ol>
+        <h4>三、远程桌面</h4>
+        <p>Windows 用系统远程桌面；macOS 调用已安装的 <strong>Windows App</strong>（或 Microsoft Remote Desktop）打开 .rdp，即可连 Windows。首次可能需输入口令（配置里的 rdp 账号口令）。</p>
+        <h4>四、配置文件</h4>
+        <p>exe 同目录放 <code>open-local-link.config.json</code>（勿提交 git）。仓库内只有 example 模板。</p>
+      </div>
+    </section>
   </div>
   <script src="app.js"></script>
 </body>

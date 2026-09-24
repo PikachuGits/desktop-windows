@@ -100,7 +100,9 @@ fn write_utf16_le_bom(path: &PathBuf, text: &str) -> std::io::Result<()> {
     Ok(())
 }
 
-/// 对齐 Form1.openrdp —— mstsc.exe /f file
+/// 对齐 Form1.openrdp
+/// Windows: mstsc.exe /f file
+/// macOS: 用「Windows App」(com.microsoft.rdc.macos) 打开 .rdp，可远程连 Windows
 #[cfg(windows)]
 pub fn open_rdp(file_name: &str) -> Result<(), String> {
     if !std::path::Path::new(file_name).exists() {
@@ -115,9 +117,26 @@ pub fn open_rdp(file_name: &str) -> Result<(), String> {
 
 #[cfg(not(windows))]
 pub fn open_rdp(file_name: &str) -> Result<(), String> {
-    Err(format!(
-        "macOS 不支持 mstsc.exe（已生成 {file_name}，请用 Microsoft Remote Desktop 打开）"
-    ))
+    if !std::path::Path::new(file_name).exists() {
+        return Err("远程桌面配置文件不存在！".into());
+    }
+    // 优先 Windows App，其次旧版 Microsoft Remote Desktop
+    for app in ["Windows App", "Microsoft Remote Desktop"] {
+        let ok = Command::new("open")
+            .args(["-a", app, file_name])
+            .spawn()
+            .is_ok();
+        if ok {
+            crate::state::push_log(&format!("已调用 {app} 打开 {file_name}"));
+            return Ok(());
+        }
+    }
+    // 兜底：交给系统按 .rdp 关联打开
+    Command::new("open")
+        .arg(file_name)
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 /// 对齐 Process.Start("explorer.exe", path)，

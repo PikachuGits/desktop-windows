@@ -1,6 +1,6 @@
 /**
- * 打开本地链接服务 — 对齐 Form1.cs / Form1.Designer.cs
- * 左侧控件行为 + 右侧 webBrowser1 内嵌列表页，并挂钩 id=iprdp（link_Click）。
+ * 打开本地链接服务 — 现代深色 UI + Form1 同源功能
+ * 静默刷新保滚动；唤醒/远程/网盘；远程桌面在 macOS 调 Windows App。
  */
 (function () {
   "use strict";
@@ -12,313 +12,375 @@
     return mockInvoke(cmd, args);
   };
 
-  let key = "这里显示KEY";
-  let registerName = "";
-  let connected = false;
-  let platform = "browser";
-  let listUrl = "";
-  let refreshTimer = null;
-  let booted = false;
-  let msgSeq = 0;
+  const 状态 = {
+    密钥: "············",
+    提示: "单击密钥或按钮复制到粘贴板",
+    注册人: "",
+    已连接: false,
+    平台: "浏览器预览",
+    筛选词: "",
+    筛选模式: "all",
+    自动刷新: true,
+    列表: [],
+  };
 
-  function nowLabel() {
+  let 定时器 = null;
+  let 正在刷新 = false;
+
+  function 时间戳() {
     const d = new Date();
-    const p = (n) => String(n).padStart(2, "0");
+    const 补 = (n) => String(n).padStart(2, "0");
     return (
-      d.getFullYear() + "/" + p(d.getMonth() + 1) + "/" + p(d.getDate()) +
-      " " + p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds())
+      d.getFullYear() + "/" + 补(d.getMonth() + 1) + "/" + 补(d.getDate()) +
+      " " + 补(d.getHours()) + ":" + 补(d.getMinutes()) + ":" + 补(d.getSeconds())
     );
   }
 
-  /** 对齐 infotextBox.Text = time + msg + "\\r\\n" + 原文 */
-  function log(msg) {
-    const box = $("infotextBox");
-    const line = nowLabel() + "   " + msg;
-    box.value = line + "\r\n" + (box.value || "");
+  /** 对齐 Form1：新日志插到最上方 */
+  function 写日志(文) {
+    const 框 = $("infotextBox");
+    const 行 = 时间戳() + "   " + 文;
+    框.value = 行 + "\n" + (框.value || "");
   }
 
-  function setInfo(text) {
-    $("infolabel").textContent = text;
+  function 按钮文案() {
+    return 状态.已连接 ? "点击断开（已注册）" : "点击注册（未注册）";
   }
 
-  function registerBtnText() {
-    return connected ? "点击断开(已注册)" : "点击注册(未注册)";
-  }
-
-  function apply(s) {
+  function 应用状态(s) {
     if (!s) return;
-    if (s.key) {
-      key = s.key;
-      $("keylabel").textContent = key;
+    if (s.key) 状态.密钥 = s.key;
+    if (s.info) 状态.提示 = s.info;
+    if (typeof s.register_name === "string") 状态.注册人 = s.register_name;
+    if (s.register_btn) 状态.已连接 = s.register_btn.indexOf("断开") >= 0;
+    if (s.platform) {
+      状态.平台 =
+        s.platform === "windows" ? "Windows · mstsc / 资源管理器"
+          : s.platform === "darwin" ? "macOS · Windows App 远程 / 访达网盘"
+            : s.platform === "browser" ? "浏览器预览" : s.platform;
     }
-    if (s.info) setInfo(s.info);
-    if (typeof s.register_name === "string") {
-      registerName = s.register_name;
-      $("namelabel").textContent = registerName;
+    if (s.logs && s.logs.length && $("infotextBox").dataset.fromRust === "1") {
+      $("infotextBox").value = s.logs.join("\n");
     }
-    if (s.register_btn) {
-      connected = s.register_btn.indexOf("断开") >= 0;
-      $("zhuchebutton").textContent = s.register_btn;
-    } else {
-      $("zhuchebutton").textContent = registerBtnText();
-    }
-    if (s.platform) platform = s.platform;
-    if (s.logs && s.logs.length && $("infotextBox").dataset.sync === "1") {
-      $("infotextBox").value = s.logs.join("\r\n");
-    }
-    if (s.browser_url && !listUrl) listUrl = s.browser_url;
-    if (s.welcome && !$("infotextBox").value) $("infotextBox").value = s.welcome;
+    刷新界面();
+  }
+
+  function 刷新界面() {
+    $("keylabel").textContent = 状态.密钥;
+    $("infolabel").textContent = 状态.提示;
+    $("namelabel").textContent = 状态.注册人 || "—";
+    $("zhuchebutton").textContent = 按钮文案();
+    const 点 = $("conn-pill");
+    点.textContent = 状态.已连接 ? "已注册" : "未注册";
+    点.classList.toggle("on", 状态.已连接);
+    $("platform-badge").textContent = 状态.平台;
   }
 
   function mockInvoke(cmd, args) {
     switch (cmd) {
-      case "init_key":
-        return Promise.resolve(randKey(12));
+      case "init_key": {
+        const 表 = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        let k = "";
+        for (let i = 0; i < 12; i++) k += 表[(Math.random() * 表.length) | 0];
+        return Promise.resolve(k);
+      }
       case "copy_key":
-        if (navigator.clipboard) navigator.clipboard.writeText(key).catch(() => {});
-        return Promise.resolve({ info: "已复制", key });
+        if (navigator.clipboard) navigator.clipboard.writeText(状态.密钥).catch(() => {});
+        return Promise.resolve({ info: "已复制" });
       case "register_key": {
-        log("正在请求注册");
-        if (!registerName) registerName = "演示注册人";
-        log("（浏览器演示）注册完成");
-        connected = !connected;
-        log(connected ? "连接成功" : "取消注册成功，已断开连接");
-        if (!connected) registerName = "";
+        写日志("正在请求注册");
+        写日志("（浏览器演示）模拟注册");
+        状态.已连接 = !状态.已连接;
+        状态.注册人 = 状态.已连接 ? "演示注册人" : "";
+        写日志(状态.已连接 ? "连接成功" : "取消注册成功，已断开连接");
         return Promise.resolve({
-          key,
+          key: 状态.密钥,
           info: "单击密钥或按钮复制到粘贴板",
-          register_name: registerName,
-          register_btn: registerBtnText(),
+          register_name: 状态.注册人,
+          register_btn: 按钮文案(),
           platform: "browser",
-          welcome: "欢迎使用杰作科技网页弹出文件夹或文件的服务",
         });
       }
-      case "toggle_connection": {
-        connected = !connected;
-        log(connected ? "连接成功" : "取消注册成功，已断开连接");
-        if (!connected) registerName = "";
-        return Promise.resolve({
-          register_name: registerName,
-          register_btn: registerBtnText(),
-          info: "单击密钥或按钮复制到粘贴板",
-        });
-      }
+      case "toggle_connection":
+        状态.已连接 = !状态.已连接;
+        if (!状态.已连接) 状态.注册人 = "";
+        写日志(状态.已连接 ? "连接成功" : "取消注册成功，已断开连接");
+        return Promise.resolve({ register_btn: 按钮文案(), register_name: 状态.注册人 });
       case "clear_log":
+        $("infotextBox").value = "";
         return Promise.resolve({ info: "单击密钥或按钮复制到粘贴板" });
       case "quit_app":
-        log("浏览器演示模式无法退出");
+        写日志("浏览器演示模式无法退出");
         return Promise.resolve({ info: "浏览器演示模式" });
+      case "wake_host":
+        写日志("请求唤醒: " + ((args && args.pcname) || "") + " (" + ((args && args.lanmac) || "") + ")");
+        return Promise.resolve({ info: "唤醒指令已提交" });
       case "open_rdp": {
         const ip = (args && args.ip) || "";
         const st = String((args && args.pingstatus) || "");
         if (st === "0") {
-          log(ip + "主机的IP不通，请先唤醒主机");
+          写日志(ip + "主机的IP不通，请先唤醒主机");
           return Promise.resolve({ info: "单击密钥或按钮复制到粘贴板" });
         }
-        log("启动远程桌面:" + ip + "  administrator  （口令来自本地配置）");
+        写日志("启动远程桌面:" + ip);
         return Promise.resolve({ info: "单击密钥或按钮复制到粘贴板" });
       }
       case "open_directory":
-        log("接收地址:" + ((args && args.path) || ""));
+        写日志("接收地址:" + ((args && args.path) || ""));
         return Promise.resolve({ info: "单击密钥或按钮复制到粘贴板" });
+      case "fetch_pc_list":
+        return Promise.resolve(样本列表());
       case "browser_ping":
       case "get_public_config":
-        return Promise.resolve({ key, platform: "browser", welcome: "欢迎使用杰作科技网页弹出文件夹或文件的服务" });
-      case "fetch_page_html":
-        return Promise.resolve("");
+        return Promise.resolve({
+          key: 状态.密钥,
+          platform: "browser",
+          welcome: "欢迎使用杰作科技网页弹出文件夹或文件的服务",
+        });
       default:
         return Promise.resolve({ info: "单击密钥或按钮复制到粘贴板" });
     }
   }
 
-  function randKey(len) {
-    const s = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    let o = "";
-    for (let i = 0; i < len; i++) o += s[(Math.random() * s.length) | 0];
-    return o;
+  function 样本列表() {
+    return [
+      {
+        id: "demo-1",
+        hostname: "示例主机-在线",
+        lan_mac: "00:11:22:33:44:55",
+        lan_ip: "10.0.0.2",
+        route_ip: "0.0.0.0",
+        status_online: true,
+        status_text: "在线",
+        wake_path: "wol.php?pcname=demo-1&lanmac=00:11:22:33:44:55",
+        lan_rdp_ip: "10.0.0.2",
+        lan_rdp_ping: "1",
+        remote_rdp_ip: "0.0.0.0",
+        remote_rdp_ping: "1",
+        open_dir: "C:\\\\Users\\\\Public\\\\Documents",
+      },
+      {
+        id: "demo-2",
+        hostname: "示例主机-离线",
+        lan_mac: "00:11:22:33:44:66",
+        lan_ip: "0.0.0.0",
+        route_ip: "0.0.0.0",
+        status_online: false,
+        status_text: "离线",
+        wake_path: "wol.php?pcname=demo-2&lanmac=00:11:22:33:44:66",
+        lan_rdp_ip: "0.0.0.0",
+        lan_rdp_ping: "0",
+        remote_rdp_ip: "0.0.0.0",
+        remote_rdp_ping: "0",
+        open_dir: "C:\\\\Users\\\\Public\\\\Documents",
+      },
+    ];
   }
 
-  /* 对齐 CopyToClipboard + infolabel = "已复制" */
-  function copyKey() {
-    invoke("copy_key").then((s) => {
-      apply(s);
-      setInfo("已复制");
+  function 可见列表() {
+    const 词 = 状态.筛选词.trim().toLowerCase();
+    return 状态.列表.filter((项) => {
+      if (状态.筛选模式 === "online" && !项.status_online) return false;
+      if (状态.筛选模式 === "offline" && 项.status_online) return false;
+      if (!词) return true;
+      return [项.hostname, 项.lan_mac, 项.lan_ip, 项.route_ip, 项.open_dir]
+        .join(" ")
+        .toLowerCase()
+        .indexOf(词) >= 0;
     });
   }
 
-  /* 对齐 zhuchebutton_Click：注册 + socket_Tick */
-  function onRegister() {
-    $("zhuchebutton").disabled = true;
-    invoke("register_key")
-      .then((s) => {
-        apply(s);
-        $("zhuchebutton").textContent = registerBtnText();
-      })
-      .catch((e) => log("请求注册失败  " + e))
-      .finally(() => {
-        $("zhuchebutton").disabled = false;
-        setTimeout(pull, 400);
-      });
+  function 建行(项) {
+    const tr = document.createElement("tr");
+    tr.className = "row";
+    tr.dataset.id = 项.id;
+    tr.innerHTML =
+      '<td class="c-status"><span class="dot"></span><span class="badge"></span></td>' +
+      '<td class="c-host"></td><td class="c-mac mono"></td>' +
+      '<td class="c-lan mono"></td><td class="c-wan mono"></td>' +
+      '<td class="col-act"><button type="button" class="btn-wake">唤醒</button></td>' +
+      '<td class="col-act"><button type="button" class="btn-lan">本地连接</button></td>' +
+      '<td class="col-act"><button type="button" class="btn-wan">远程连接</button></td>' +
+      '<td class="col-act"><button type="button" class="btn-dir">网盘目录</button></td>';
+    return tr;
   }
 
-  function onClearLog() {
-    invoke("clear_log").then(() => {
-      $("infotextBox").value = "";
-    });
-  }
+  /** 静默刷新：复用行节点，写回 scrollTop */
+  function 静默刷新列表(选项) {
+    选项 = 选项 || {};
+    const 滚动框 = $("list-scroll");
+    const 表体 = $("link-list");
+    const 空 = $("list-empty");
+    const 原滚动 = 滚动框.scrollTop;
+    const 旧行 = new Map();
+    表体.querySelectorAll(":scope > tr.row").forEach((tr) => 旧行.set(tr.dataset.id, tr));
+    const 项列 = 可见列表();
+    空.classList.toggle("hidden", 项列.length > 0);
+    const 片 = document.createDocumentFragment();
+    const 有变化 = [];
 
-  function onQuit() {
-    invoke("quit_app");
-  }
-
-  function pull() {
-    return invoke("browser_ping").then(apply).catch(() => {});
-  }
-
-  /**
-   * 右侧 webBrowser1：拉取列表页 HTML，改写为同源后注入 iframe，
-   * 等价 DocumentCompleted 后挂钩 id=iprdp（Form1.link_Click）。
-   */
-  function injectPage(html) {
-    const frame = $("webBrowser1");
-    const fallback = $("web-fallback");
-    try {
-      const base = listUrl.replace(/\/[^/]*$/, "/");
-      // 去掉页面自带 meta 刷新，改由本窗 5 秒静默刷新（避免卷回顶部）
-      let doc = html.replace(
-        /<meta[^>]+http-equiv=["']?refresh["']?[^>]*>/gi,
-        ""
-      );
-      // 相对地址改写，保证 wol.php / 样式可加载
-      doc = doc.replace(/<head([^>]*)>/i, (m, a) => {
-        return m + "\n<base href=\"" + base + "\">";
-      });
-      const hook =
-        "<script>(function(){\n" +
-        "var __seq=0;\n" +
-        "function post(msg){ try { msg.__seq = Date.now(); window.parent.postMessage(msg,'*'); } catch(e){} }\n" +
-        "document.addEventListener('click', function(e){\n" +
-        "  var a = e.target && e.target.closest ? e.target.closest('a') : null;\n" +
-        "  if(!a) return;\n" +
-        "  var id = a.id || a.getAttribute('id') || '';\n" +
-        "  if(id === 'iprdp' || id === 'opendir') e.preventDefault();\n" +
-        "  if(id === 'iprdp'){\n" +
-        "    e.stopPropagation();\n" +
-        "    post({type:'iprdp', ip:a.getAttribute('data-ip')||'', pingstatus:a.getAttribute('data-pingstatus')||''});\n" +
-        "  } else if(id === 'opendir'){\n" +
-        "    e.stopPropagation();\n" +
-        "    post({type:'opendir', dir:a.getAttribute('data-dir')||''});\n" +
-        "  }\n" +
-        "}, true);\n" +
-        "})();<\/script>";
-      if (/<\/body>/i.test(doc)) {
-        doc = doc.replace(/<\/body>/i, hook + "</body>");
-      } else {
-        doc += hook;
+    项列.forEach((项) => {
+      let tr = 旧行.get(项.id) || 建行(项);
+      if (!旧行.has(项.id)) 有变化.push(tr);
+      const host = tr.querySelector(".c-host");
+      const mac = tr.querySelector(".c-mac");
+      const lan = tr.querySelector(".c-lan");
+      const wan = tr.querySelector(".c-wan");
+      const badge = tr.querySelector(".badge");
+      const dot = tr.querySelector(".dot");
+      if (host.textContent !== 项.hostname) {
+        host.textContent = 项.hostname;
+        有变化.push(tr);
       }
-      frame.srcdoc = doc;
-      fallback.classList.add("hidden");
+      mac.textContent = 项.lan_mac || "—";
+      lan.textContent = 项.lan_ip || "—";
+      wan.textContent = 项.route_ip || "—";
+      const 态 = 项.status_text || (项.status_online ? "在线" : "离线");
+      badge.textContent = 态;
+      badge.classList.toggle("on", !!项.status_online);
+      badge.classList.toggle("off", !项.status_online);
+      dot.classList.toggle("on", !!项.status_online);
+      dot.classList.toggle("off", !项.status_online);
+      tr.querySelector(".btn-wake").onclick = () => 唤醒(项);
+      tr.querySelector(".btn-lan").onclick = () => 远程(项.lan_rdp_ip, 项.lan_rdp_ping);
+      tr.querySelector(".btn-wan").onclick = () => 远程(项.remote_rdp_ip, 项.remote_rdp_ping);
+      tr.querySelector(".btn-dir").onclick = () => 网盘(项);
+      tr.querySelector(".btn-lan").disabled = !项.lan_rdp_ip || 项.lan_rdp_ip === "0.0.0.0";
+      tr.querySelector(".btn-wan").disabled = !项.remote_rdp_ip || 项.remote_rdp_ip === "0.0.0.0";
+      tr.querySelector(".btn-dir").disabled = !项.open_dir;
+      片.appendChild(tr);
+      旧行.delete(项.id);
+    });
+
+    表体.replaceChildren(片);
+    滚动框.scrollTop = 原滚动;
+    if (选项.flash !== false && 有变化.length) {
+      有变化.forEach((tr) => {
+        tr.classList.remove("flash");
+        void tr.offsetWidth;
+        tr.classList.add("flash");
+      });
+    }
+    $("refresh-meta").textContent =
+      "上次刷新 " + 时间戳().slice(11) + " · 滚动已保持 " + Math.round(滚动框.scrollTop);
+    $("list-stats").textContent =
+      "共 " + 状态.列表.length + " 台 · 显示 " + 项列.length + " 台";
+  }
+
+  function 唤醒(项) {
+    invoke("wake_host", { pcname: 项.hostname, lanmac: 项.lan_mac })
+      .then(应用状态)
+      .then(() => { if (项.hostname) 写日志("请求唤醒: " + 项.hostname); });
+  }
+
+  function 远程(ip, ping) {
+    invoke("open_rdp", { ip: String(ip || ""), pingstatus: String(ping) }).then(应用状态);
+  }
+
+  function 网盘(项) {
+    if (!项.open_dir) return;
+    invoke("open_directory", { path: 项.open_dir }).then(应用状态);
+  }
+
+  async function 刷新(选项) {
+    选项 = 选项 || {};
+    if (正在刷新) return;
+    正在刷新 = true;
+    try {
+      let 列表 = await invoke("fetch_pc_list");
+      if (Array.isArray(列表) && 列表.length) {
+        状态.列表 = 列表.map((x, i) =>
+          Object.assign({ id: "row-" + i + "-" + (x.hostname || i) }, x)
+        );
+      }
+      静默刷新列表({ flash: 选项.flash !== false });
+      应用状态(await invoke("browser_ping"));
     } catch (e) {
-      fallback.classList.remove("hidden");
-      log("内嵌页面加载失败: " + e);
+      写日志("刷新失败: " + e);
+    } finally {
+      正在刷新 = false;
     }
   }
 
-  function loadBrowser() {
-    if (!listUrl) {
-      $("web-fallback").classList.remove("hidden");
-      return Promise.resolve();
+  function 复制密钥() {
+    invoke("copy_key").then((s) => {
+      应用状态(s);
+      状态.提示 = "已复制";
+      刷新界面();
+    });
+  }
+
+  async function 启动注册() {
+    $("zhuchebutton").disabled = true;
+    try {
+      // 对齐 zhuchebutton_Click：注册后必进 socket_Tick（后端 register_key 已串联）
+      写日志("正在请求注册");
+      const s = await invoke("register_key");
+      应用状态(s);
+    } catch (e) {
+      写日志("请求注册失败  " + e);
+    } finally {
+      $("zhuchebutton").disabled = false;
+      setTimeout(() => 刷新({ flash: true }), 300);
     }
-    // 优先后端拉取（跨域不拦），失败则前端 fetch
-    return invoke("fetch_page_html")
-      .then((html) => {
-        if (html && html.length > 20) return html;
-        return fetch(listUrl, { cache: "no-store" }).then((r) => r.text());
-      })
-      .then(injectPage)
-      .catch((e) => {
-        $("web-fallback").classList.remove("hidden");
-        log("无法加载右侧页面: " + e);
+  }
+
+  function 绑定() {
+    $("keybutton").addEventListener("click", 复制密钥);
+    $("keylabel").addEventListener("click", 复制密钥);
+    $("btn-copy-hint").addEventListener("click", 复制密钥);
+    $("zhuchebutton").addEventListener("click", 启动注册);
+    $("button1").addEventListener("click", () => {
+      invoke("clear_log").then(() => { $("infotextBox").value = ""; });
+    });
+    $("button2").addEventListener("click", () => invoke("quit_app"));
+    $("btn-refresh-now").addEventListener("click", () => 刷新({ flash: true }));
+    $("toggle-auto").addEventListener("change", (e) => {
+      状态.自动刷新 = e.target.checked;
+      写日志(状态.自动刷新 ? "已开启自动静默刷新（5 秒）" : "已暂停自动刷新");
+    });
+    $("filter").addEventListener("input", (e) => {
+      状态.筛选词 = e.target.value;
+      静默刷新列表({ flash: false });
+    });
+    document.querySelectorAll(".seg-btn").forEach((按钮) => {
+      按钮.addEventListener("click", () => {
+        document.querySelectorAll(".seg-btn").forEach((b) => b.classList.remove("active"));
+        按钮.classList.add("active");
+        状态.筛选模式 = 按钮.getAttribute("data-filter");
+        静默刷新列表({ flash: false });
       });
+    });
+    const 帮助 = $("help-panel");
+    const 开关 = (开) => {
+      帮助.classList.toggle("hidden", !开);
+      $("btn-help").setAttribute("aria-expanded", 开 ? "true" : "false");
+    };
+    $("btn-help").addEventListener("click", () => 开关(帮助.classList.contains("hidden")));
+    $("btn-help-close").addEventListener("click", () => 开关(false));
   }
 
-  /** 对齐 label3「右侧5秒自动刷新」：静默刷新，尽量保留 iframe 内滚动 */
-  function startAutoRefresh() {
-    if (refreshTimer) clearInterval(refreshTimer);
-    refreshTimer = setInterval(() => {
-      const frame = $("webBrowser1");
-      let scrollTop = 0;
-      try {
-        const d = frame.contentDocument;
-        if (d && d.scrollingElement) scrollTop = d.scrollingElement.scrollTop;
-      } catch (_) {}
-      loadBrowser().then(() => {
-        const restore = () => {
-          try {
-            const d = $("webBrowser1").contentDocument;
-            if (d && d.scrollingElement) d.scrollingElement.scrollTop = scrollTop;
-          } catch (_) {}
-          $("webBrowser1").removeEventListener("load", restore);
-        };
-        $("webBrowser1").addEventListener("load", restore);
-      });
-    }, 5000);
-  }
-
-  function onWindowMessage(ev) {
-    const d = ev.data;
-    if (!d || typeof d !== "object") return;
-    // 同一点击只处理一次，防止 message 重复导致开两个资源管理器
-    if (d.__seq && d.__seq <= msgSeq) return;
-    if (d.__seq) msgSeq = d.__seq;
-    if (d.type === "iprdp") {
-      invoke("open_rdp", { ip: d.ip, pingstatus: String(d.pingstatus) })
-        .then(apply)
-        .catch((e) => log(String(e)));
-    } else if (d.type === "opendir") {
-      invoke("open_directory", { path: d.dir })
-        .then(apply)
-        .catch((e) => log(String(e)));
-    }
-  }
-
-  function bind() {
-    $("keybutton").addEventListener("click", copyKey);
-    $("keylabel").addEventListener("click", copyKey);
-    $("zhuchebutton").addEventListener("click", onRegister);
-    $("button1").addEventListener("click", onClearLog);
-    $("button2").addEventListener("click", onQuit);
-    window.addEventListener("message", onWindowMessage);
-  }
-
-  async function boot() {
-    if (booted) return;
-    booted = true;
-    bind();
+  async function 启动() {
+    绑定();
     $("infotextBox").value = "欢迎使用杰作科技网页弹出文件夹或文件的服务";
-    setInfo("单击密钥或按钮复制到粘贴板");
-    $("keylabel").textContent = "这里显示KEY";
-
     try {
       const pub = await invoke("get_public_config");
-      if (pub && pub.pc_list_url) listUrl = pub.pc_list_url;
+      if (pub && pub.platform) 应用状态({ platform: pub.platform });
     } catch (_) {}
     try {
       const s = await invoke("browser_ping");
-      apply(s);
+      应用状态(s);
     } catch (_) {}
     try {
-      const k = await invoke("init_key");
-      if (k) {
-        key = k;
-        $("keylabel").textContent = key;
-      }
+      状态.密钥 = (await invoke("init_key")) || 状态.密钥;
     } catch (_) {}
-
-    $("zhuchebutton").textContent = registerBtnText();
-    await loadBrowser();
-    startAutoRefresh();
+    刷新界面();
+    await 刷新({ flash: false });
+    定时器 = setInterval(() => {
+      if (状态.自动刷新) 刷新({ flash: true });
+    }, 5000);
+    写日志("界面已就绪 · macOS 远程桌面使用 Windows App");
   }
 
-  boot();
+  启动();
 })();
