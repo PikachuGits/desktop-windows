@@ -4,6 +4,9 @@
   "version": "1.1.1",
   "description": "点击浏览器按钮，弹出资源管理器文件夹或文件",
   "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "dev": "tauri dev",
     "build": "tauri build",

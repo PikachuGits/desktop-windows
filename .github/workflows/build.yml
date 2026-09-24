@@ -30,14 +30,17 @@ jobs:
       contents: write
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      - name: 安装 Node.js
-        uses: actions/setup-node@v4
+      - name: 安装 Node.js 24
+        uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: package-lock.json
+
+      - name: 确认 Node 24
+        run: node -v && npm -v
 
       - name: 安装 Rust
         uses: dtolnay/rust-toolchain@stable
@@ -64,7 +67,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
       - name: 上传 ${{ matrix.platform }} 安装包
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: bundles-${{ matrix.platform }}
           path: |
